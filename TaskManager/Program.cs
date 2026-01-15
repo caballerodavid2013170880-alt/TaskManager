@@ -1,0 +1,38 @@
+using Microsoft.EntityFrameworkCore;
+using TaskManager.Context;
+using TaskManager.Utilities.Configurations;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// --- SECCIÓN DE REGISTRO DE SERVICIOS ---
+
+builder.Services.AddControllers();
+builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Registro de DbContext
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")), ServiceLifetime.Scoped);
+
+// REGISTRO DE TUS SERVICIOS PERSONALIZADOS (CORREGIDO)
+builder.Services.AddServices();
+
+// --- FIN DE SECCIÓN DE SERVICIOS ---
+
+// Construcción de la aplicación
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+app.UseMiddleware<GlobalErrorHandlerMiddleware>();
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();

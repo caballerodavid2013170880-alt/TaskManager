@@ -1,0 +1,292 @@
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using TaskManager.Context;
+using TaskManager.DTOs;
+using TaskManager.DTOs.Task;
+using TaskManager.Interfaces.Tasks;
+using TaskManager.Models;
+
+namespace TaskManager.Controllers
+{
+    [ApiController]
+    [Route("api/tasks")]
+    public class TaskItemsController : ControllerBase
+    {
+        private readonly AppDbContext _context;
+        private readonly ITaskService _taskService; // 13/Enero
+        public TaskItemsController(AppDbContext context, ITaskService taskService)
+        {
+            _context = context;
+            _taskService = taskService;
+        }
+
+        [HttpGet]
+
+        public async Task<ActionResult<List<TaskItem>>> Get()
+        {
+            var tasks = await _context.Tasks // Access the TaskItems DbSet from the database context
+            .Select(t => new TaskItemResponse
+            {   
+                    Id = t.Id,
+                    Title = t.Title,
+                    IsCompleted = t.IsCompleted
+                })
+              .ToListAsync();
+                return Ok(tasks);
+        }
+        [HttpGet("{id:int}")]
+        public async Task<ActionResult<TaskItemResponse>> GetById(int id)
+        {
+            var task = await _context.Tasks.FindAsync(id);
+
+            if (task == null)
+                return NotFound();
+
+            var dto = new TaskItemResponse
+            {
+                Id = task.Id,
+                Title = task.Title,
+                IsCompleted = task.IsCompleted
+            };
+
+            return Ok(dto);
+        }
+        
+        [HttpPost]
+        public async Task<ActionResult<TaskItemResponse>> Create([FromBody] CreateTaskRequest request)
+        { 
+            if (request == null) 
+                return BadRequest("Body requerido."); 
+            
+            if (string.IsNullOrWhiteSpace(request.Title)) 
+                return BadRequest("Title es requerido.");
+
+            var categoryExists = await _context.Categories.AnyAsync(c => c.Id == request.CategoryId); 
+            if (!categoryExists) 
+                return BadRequest("CategoryId no existe.");
+
+            var entity = new TaskItem 
+            { 
+                Title = request.Title.Trim(), 
+                IsCompleted = false, 
+                CategoryId =   request.CategoryId
+            }; 
+            //Registro
+                _context.Tasks.Add(entity); 
+            await _context.SaveChangesAsync(); 
+            var dto = new TaskItemResponse 
+            {   Id = entity.Id, 
+                Title = entity.Title, 
+                IsCompleted = entity.IsCompleted 
+            }; 
+            return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto); 
+        }
+        // Código original
+        
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateTaskRequest request)
+        {
+            var task = await _context.Tasks.FindAsync(id);
+            if (task == null) return NotFound();
+
+            if (request == null) return BadRequest("Body requerido.");
+            if (string.IsNullOrWhiteSpace(request.Title)) return BadRequest("Title es requerido.");
+
+            task.Title = request.Title.Trim();
+
+            if (request.IsCompleted.HasValue) { task.IsCompleted = request.IsCompleted.Value; }
+           
+            await _context.SaveChangesAsync();
+
+            return NoContent(); // 204
+        }
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var task = await _context.Tasks.FindAsync(id);
+            if (task == null) return NotFound();
+
+            _context.Tasks.Remove(task);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+        /*
+        [HttpGet("search")]
+        public async Task<ActionResult<IEnumerable<TaskSearchResult>>> Search(
+            
+            [FromQuery] TaskSearchRequest request //Provenientes de los parametros
+)
+        {
+            var query = _context.Tasks.AsQueryable(); // AsQueryable: Permite agregar condiciones sin ejecutar consultas
+
+            if (!string.IsNullOrWhiteSpace(request.text))
+                query = query.Where(t => t.Title.Contains(request.text)); //Fitro por titulo con contenido
+
+            if (request.completed.HasValue)
+                query = query.Where(t => t.IsCompleted == request.completed); //Filtro con el estatus completado
+
+            if (request.step.HasValue)
+                query = query.Where(t => t.Step == request.step); //Filtro por paso
+           
+                query = request.orderBy switch //Asignar a query el valor de orderBy (filtros)
+            {
+                "title" => query.OrderBy(t => t.Title),
+                "title_desc" => query.OrderByDescending(t => t.Title),
+                "date" => query.OrderBy(t => t.CreatedAt),
+                "date_desc" => query.OrderByDescending(t => t.CreatedAt),
+                "step" => query.OrderBy(t => t.Step),
+                "step_desc" => query.OrderByDescending(t => t.Step),
+                _ => query.OrderBy(t => t.Id) //Para valores vacios
+            };
+
+            var results = await query
+                .Select(t => new TaskSearchResult
+
+                {
+                    Identificador = t.Id,
+                    Titulo = t.Title,
+                    Completada = t.IsCompleted,
+                    PasoActual = t.Step,
+                    Fecha_creacion = t.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(results);
+        }
+        [HttpGet("paged")] 
+        public async Task<ActionResult<IEnumerable<TaskSearchResult>>> 
+            GetPaged(
+            [FromQuery] int page = 1, 
+            [FromQuery] int pageSize = 3) 
+          {
+            var query = _context.Tasks
+                .OrderBy(t => t.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize); 
+            var result = await query.Select(t => new TaskSearchResult 
+                {
+                Identificador = t.Id,
+                Titulo = t.Title,
+                Completada = t.IsCompleted,
+                PasoActual = t.Step,
+                Fecha_creacion = t.CreatedAt 
+            })
+                .ToListAsync(); 
+            return Ok(result); 
+        }
+        */
+        //Integración
+        [HttpGet("search")]
+        public async Task<ActionResult> Search([FromQuery] TaskSearchRequest request)
+        {
+            // 1. Base de la consulta
+            var query = _context.Tasks.AsQueryable();
+
+            // 2. Filtros (Where)
+            if (!string.IsNullOrWhiteSpace(request.text))
+                query = query.Where(t => t.Title.Contains(request.text));
+            if (request.completed.HasValue)
+                query = query.Where(t => t.IsCompleted == request.completed);
+            if (request.step.HasValue)
+                query = query.Where(t => t.Step == request.step);
+
+            // 3. Ordenamiento (OrderBy)
+            query = request.orderBy switch
+            {
+                "title" => query.OrderBy(t => t.Title),
+                "title_desc" => query.OrderByDescending(t => t.Title),
+                "date" => query.OrderBy(t => t.CreatedAt),
+                "date_desc" => query.OrderByDescending(t => t.CreatedAt),
+                "step" => query.OrderBy(t => t.Step),
+                "step_desc" => query.OrderByDescending(t => t.Step),
+                _ => query.OrderBy(t => t.Id) // _ para valores vacíos
+            };
+
+            // -Integración -
+            // Aplicar la paginación a la query original
+            //Ejercicio Enero 6: Agregar lógica de paginación
+            var pagedQuery = query
+                .Skip((request.page - 1) * request.pageSize).Take(request.pageSize);
+
+            var results = await pagedQuery
+                .Select(t => new TaskSearchResult
+                {
+                    Identificador = t.Id,
+                    Titulo = t.Title,
+                    Completada = t.IsCompleted,
+                    PasoActual = t.Step,
+                    Fecha_creacion = t.CreatedAt
+                })
+                .ToListAsync();
+
+                return Ok(results);
+        }
+
+        [HttpGet("paged")] // Método que responde peticiones Get en la ruta nombrada como "paged"
+        public async Task<ActionResult<IEnumerable<TaskSearchResult>>> GetPaged(
+            [FromQuery] int page = 1, 
+            [FromQuery] int pageSize = 10)
+        {
+            var query = _context.Tasks.OrderBy(t => t.Id).Skip((page - 1) * pageSize).Take(pageSize); // lógica del query: ordenamiento ascendente por ID
+            var result = await query.Select(t => new TaskSearchResult // ejecución del query en la BD
+            {
+                // mapea solo de los campos necesarios al objeto DTO
+                Identificador = t.Id,
+                Titulo = t.Title,
+                Completada = t.IsCompleted,
+                PasoActual = t.Step,
+                Fecha_creacion = t.CreatedAt
+            }).ToListAsync(); // el resultado (result) se convierte a una lista y se envía a SQL
+
+            return Ok(result);
+        }
+
+
+        [HttpGet("with-category")] 
+        public async Task<ActionResult<IEnumerable<TaskWithCategoryDto>>> GetWithCategory() 
+        { 
+            var result = await _context.Tasks
+                .Include(t => t.Category)
+                .OrderBy(t => t.Id)
+                .Select(t => new TaskWithCategoryDto 
+                { 
+                    Id = t.Id, 
+                    Title = t.Title, 
+                    IsCompleted = t.IsCompleted, 
+                    Step = t.Step, 
+                    CreatedAt = t.CreatedAt, 
+                    //0 para evitar excepción
+                    CategoryId = t.CategoryId ?? 0, 
+                    CategoryName = t.Category.Name 
+                })
+                .ToListAsync(); 
+            return Ok(result); }
+
+        [HttpGet("advanced-search")]
+        public async Task<ActionResult<PagedResultDto<TaskWithCategoryDto>>> AdvancedSearch(
+            [FromQuery] string? text,
+            [FromQuery] bool? completed,
+            [FromQuery] int? step,
+            [FromQuery] int? categoryId,
+            [FromQuery] string? categoryName,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10
+        )
+            
+           //13 enero:
+            {
+
+            //throw new Exception("La categoría no existe."); //14Enero2026
+            if (page <= 0) return BadRequest("Page debe ser mayor a 0.");
+            if (pageSize <= 0 || pageSize > 100) 
+                return BadRequest("PageSize debe estar entre 1 y 100.");
+
+            var result = await _taskService.AdvancedSearchAsync(
+                text, completed, step, categoryId, categoryName, page, pageSize);
+
+            return Ok(result);
+
+            }                  
+    }
+}
