@@ -5,6 +5,7 @@ using TaskManager.DTOs;
 using TaskManager.DTOs.Task;
 using TaskManager.Interfaces.Tasks;
 using TaskManager.Models;
+using TaskManagerAPI.Utilities.Exceptions;
 
 namespace TaskManager.Controllers
 {
@@ -60,6 +61,8 @@ namespace TaskManager.Controllers
             
             if (string.IsNullOrWhiteSpace(request.Title)) 
                 return BadRequest("Title es requerido.");
+
+            throw new BusinessException("La categoría no existe.", 404); // 15 Enero Interrupción
 
             var categoryExists = await _context.Categories.AnyAsync(c => c.Id == request.CategoryId); 
             if (!categoryExists) 
