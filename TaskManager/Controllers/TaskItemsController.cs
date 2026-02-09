@@ -1,4 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Drawing;
+using DocumentFormat.OpenXml.Drawing.Diagrams;
+using DocumentFormat.OpenXml.Wordprocessing;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaskManager.Context;
 using TaskManager.DTOs;
@@ -199,8 +203,8 @@ namespace TaskManager.Controllers
             {
                 "title" => query.OrderBy(t => t.Title),
                 "title_desc" => query.OrderByDescending(t => t.Title),
-                "date" => query.OrderBy(t => t.CreatedAt),
-                "date_desc" => query.OrderByDescending(t => t.CreatedAt),
+              //  "date" => query.OrderBy(t => t.CreatedAt),
+             //   "date_desc" => query.OrderByDescending(t => t.CreatedAt),
                 "step" => query.OrderBy(t => t.Step),
                 "step_desc" => query.OrderByDescending(t => t.Step),
                 _ => query.OrderBy(t => t.Id) // _ para valores vacíos
@@ -219,7 +223,7 @@ namespace TaskManager.Controllers
                     Titulo = t.Title,
                     Completada = t.IsCompleted,
                     PasoActual = t.Step,
-                    Fecha_creacion = t.CreatedAt
+                    //Fecha_creacion = t.CreatedAt
                 })
                 .ToListAsync();
 
@@ -239,7 +243,7 @@ namespace TaskManager.Controllers
                 Titulo = t.Title,
                 Completada = t.IsCompleted,
                 PasoActual = t.Step,
-                Fecha_creacion = t.CreatedAt
+              //  Fecha_creacion = t.CreatedAt
             }).ToListAsync(); // el resultado (result) se convierte a una lista y se envía a SQL
 
             return Ok(result);
@@ -258,7 +262,7 @@ namespace TaskManager.Controllers
                     Title = t.Title, 
                     IsCompleted = t.IsCompleted, 
                     Step = t.Step, 
-                    CreatedAt = t.CreatedAt, 
+                 //   CreatedAt = t.CreatedAt, 
                     //0 para evitar excepción
                     CategoryId = t.CategoryId ?? 0, 
                     CategoryName = t.Category.Name 
@@ -274,7 +278,7 @@ namespace TaskManager.Controllers
             [FromQuery] int? categoryId,
             [FromQuery] string? categoryName,
             [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10
+            [FromQuery] int pageSize = 5
         )
             
            //13 enero:
@@ -291,5 +295,139 @@ namespace TaskManager.Controllers
             return Ok(result);
 
             }                  
+    
+
+
+     //Mi Importar Excel2 2601226
+
+        //Importación Excel 260126
+        [HttpPost("import-excel")] //Siempre se envian archivos por metodo POST
+        public async Task<IActionResult> ImportFromExcel2(IFormFile file) //IFormFile: Libreria incluida 260126
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No se recibió ningún archivo o está vacío.");
+
+            var taskitems = new List<TaskItem>();
+
+            using (var stream = new MemoryStream())
+            {
+                await file.CopyToAsync(stream);
+                stream.Position = 0; // Nos aseguramos de ir al inicio
+
+                using (var workbook = new XLWorkbook(stream))//Abrir el archivo dese la memoria
+                {
+                    var worksheet = workbook.Worksheets.First(); // Tomamos la primera hoja
+                    var rows = worksheet.RangeUsed().RowsUsed();
+
+                    bool isHeader = true;
+
+                    foreach (var row in rows)
+                    {
+                        if (isHeader) { isHeader = false; continue; }
+
+                        // Declarar variables locales para los TryParse
+                        int stepValue = 0;
+                        int categoryIdValue = 0;
+                        bool isComplete = false;
+                        bool isDelete = false;
+
+                        // Columna B: Title (Celda 2)
+                        var title = row.Cell(2).GetString();
+
+                        // Columna C: IsCompleted (Celda 3)
+                        var isCompletedStr = row.Cell(3).GetString();
+                        bool.TryParse(isCompletedStr, out isComplete);
+
+                        // Columna D: Step (Celda 4)
+                        var stepCell = row.Cell(4);
+                        if (!stepCell.IsEmpty())
+                        {
+                            stepValue = stepCell.DataType == XLDataType.Number ?
+                                (int)stepCell.GetDouble() : int.TryParse(stepCell.GetString(), out int s) ? s : 0;
+                        }
+
+                        // Columna E: CategoryId (Celda 5)
+                        var categoryCell = row.Cell(5);
+                        if (!categoryCell.IsEmpty())
+                        {
+                            categoryIdValue = categoryCell.DataType == XLDataType.Number ?
+                                (int)categoryCell.GetDouble() : int.TryParse(categoryCell.GetString(), out int c) ? c : 0;
+                        }
+
+                        // Columna F: IsDeleted (Celda 6)
+                        var isDeletedStr = row.Cell(6).GetString();
+                        bool.TryParse(isDeletedStr, out isDelete);
+
+                        if (string.IsNullOrWhiteSpace(title)) continue;
+
+                        var taskitem = new TaskItem
+                        {
+                            Title = title.Trim(),
+                            IsCompleted = isComplete,
+                            Step = stepValue,
+                            CategoryId = categoryIdValue > 0 ? categoryIdValue : null,
+                            IsDeleted = isDelete,
+                            CreatedAt = DateTime.Now
+                        };
+
+                        taskitems.Add(taskitem);
+                    }
+                }
+            }
+            //Validaciones
+            // Opcional: filtrar duplicados por Name en la misma importación
+            taskitems = taskitems
+                .GroupBy(c => c.Title.ToLower())
+                .Select(g => g.First())
+                .ToList();
+
+            // Opcional: evitar insertar categorías que ya existan en la BD
+            var existingNames = _context.Tasks
+                .Select(c => c.Title.ToLower())
+                .ToHashSet();
+
+            var newTasks = taskitems
+                .Where(c => !existingNames.Contains(c.Title.ToLower()))
+                .ToList();
+
+
+            // Guardar en base de datos
+            _context.Tasks.AddRange(newTasks);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                Message = $"Se importaron {taskitems.Count} tareas."
+            });
+        }
+        //Fin Importa Excel2
+
+
+        //050226
+        [HttpGet("ajax-search")]
+        public async Task<IActionResult> AjaxSearch([FromQuery] string? text)
+        {
+            var query = _context.Tasks.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(text))
+                query = query.Where(t => t.Title.Contains(text));
+
+            var results = await query
+                .OrderBy(t => t.Id)
+                .Take(50)
+                .Select(t => new
+                {
+                    t.Id,
+                    t.Title,
+                    t.CategoryName,
+                    t.IsCompleted,
+                    t.Step
+                })
+                .ToListAsync();
+
+            return Ok(results);
+        }
+
+
     }
 }

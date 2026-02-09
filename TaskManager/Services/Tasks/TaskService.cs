@@ -6,7 +6,7 @@ using TaskManager.DTOs.Task;
 using TaskManager.DTOs;
 using TaskManager.Interfaces.Tasks;
 
-public class TaskService : ITaskService
+public class TaskService : ITaskService //Puente Interfaz y Servicio
 {
     private readonly AppDbContext _context;
 
@@ -61,11 +61,12 @@ public class TaskService : ITaskService
                 Step = t.Step,
                 CreatedAt = t.CreatedAt,
                 CategoryId = t.CategoryId ?? 0,
-                CategoryName = t.Category.Name
+                // Usa el '?' para evitar el error de referencia nula:
+                CategoryName = t.Category != null ? t.Category.Name : "Sin Categoría"
             })
             .ToListAsync();
 
-        return new PagedResultDto<TaskWithCategoryDto>
+        return new PagedResultDto<TaskWithCategoryDto> // DTO encapsula al otro DTO, delegando responsabilidades logica del controlador
         {
             Page = page,
             PageSize = pageSize,
