@@ -66,7 +66,7 @@ namespace TaskManager.Controllers
             if (string.IsNullOrWhiteSpace(request.Title)) 
                 return BadRequest("Title es requerido.");
 
-            throw new BusinessException("La categoría no existe.", 404); // 15 Enero Interrupción
+            //throw new BusinessException("La categoría no existe.", 404); // 15 Enero Interrupción
 
             var categoryExists = await _context.Categories.AnyAsync(c => c.Id == request.CategoryId); 
             if (!categoryExists) 
@@ -283,6 +283,7 @@ namespace TaskManager.Controllers
             
            //13 enero:
             {
+           // throw new BusinessException("La categoría no existe."); // 1602 Interrupción
 
             //throw new Exception("La categoría no existe."); //14Enero2026
             if (page <= 0) return BadRequest("Page debe ser mayor a 0.");
