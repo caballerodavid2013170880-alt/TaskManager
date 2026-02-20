@@ -88,8 +88,8 @@ namespace TaskManager.Controllers
             }; 
             return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto); 
         }
-        // Código original
-        
+        // Modificación PUT para ampliar envio a FRONT 190226
+
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateTaskRequest request)
         {
@@ -99,14 +99,33 @@ namespace TaskManager.Controllers
             if (request == null) return BadRequest("Body requerido.");
             if (string.IsNullOrWhiteSpace(request.Title)) return BadRequest("Title es requerido.");
 
+            // 1. Actualizar el Título
             task.Title = request.Title.Trim();
 
-            if (request.IsCompleted.HasValue) { task.IsCompleted = request.IsCompleted.Value; }
-           
+            // 2. Actualizar el Estado
+            if (request.IsCompleted.HasValue)
+            {
+                task.IsCompleted = request.IsCompleted.Value;
+            }
+
+            // 3. Actualiza el Step (si viene en la petición)
+            if (request.Step.HasValue)
+            {
+                task.Step = request.Step.Value;
+            }
+
+            // 4. Actualiza la Categoría (si viene en la petición)
+            if (request.CategoryId.HasValue)
+            {
+                // Si mandan un 0 o null desde el front, se puede asignar null o procesarlo
+                task.CategoryId = request.CategoryId.Value > 0 ? request.CategoryId.Value : null;
+            }
+
             await _context.SaveChangesAsync();
 
             return NoContent(); // 204
         }
+
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
