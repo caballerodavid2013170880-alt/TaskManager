@@ -76,7 +76,8 @@ namespace TaskManager.Controllers
             { 
                 Title = request.Title.Trim(), 
                 IsCompleted = false, 
-                CategoryId =   request.CategoryId
+                CategoryId =   request.CategoryId,
+                CategoryName = ""
             }; 
             //Registro
                 _context.Tasks.Add(entity); 
