@@ -1,5 +1,7 @@
 ﻿// 13 ene: se especifica en un archivo a parte la especificación para no saturar el "Program.cs" (es decir, es un método de extensión, segmentando las llamadas que se hacen desde el program.cs)
+using TaskManager.Interfaces.Categories;
 using TaskManager.Interfaces.Tasks;
+using TaskManager.Services.Categories;
 
 namespace TaskManager.Utilities.Configurations
 {
@@ -9,6 +11,7 @@ namespace TaskManager.Utilities.Configurations
         public static void AddServices(this IServiceCollection services) //Por cada servicio de interfaz e debe agregar una linea
         {
             services.AddScoped<ITaskService, TaskService>();
+            services.AddScoped<ICategoryService, CategoryService>();
         }
     }
 }
