@@ -51,7 +51,9 @@ namespace TaskManager.Controllers
             {
                 Id = task.Id,
                 Title = task.Title,
-                IsCompleted = task.IsCompleted
+                IsCompleted = task.IsCompleted,
+                Step = task.Step,                       //270226 Se agrega porque faltan estos datos al enviarlos al F
+                CategoryId = (int)task.CategoryId       //270226
             };
 
             return Ok(dto);
