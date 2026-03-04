@@ -1,6 +1,7 @@
 ﻿/* 13 ene: Se añade capa */
 
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Office2021.DocumentTasks;
 using Microsoft.EntityFrameworkCore;
 using TaskManager.Context;
 using TaskManager.DTOs;
@@ -136,7 +137,9 @@ public class TaskService : ITaskService //Puente Interfaz y Servicio
         {
             Id = entity.Id,
             Title = entity.Title,
-            IsCompleted = entity.IsCompleted
+            IsCompleted = entity.IsCompleted,
+            Step = entity.Step,                       //40326 Se agrega porque faltan estos datos al enviarlos al Front
+            CategoryId = (int)entity.CategoryId       //40326
         };
     }
 
