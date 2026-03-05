@@ -9,9 +9,10 @@ namespace TaskManager.DTOs
         [Required(ErrorMessage = "El titulo es obligatorio.")]
         [MaxLength(200, ErrorMessage = "El titulo no puede superar los 200 caracteres.")]
         public string Title { get; set; }
-        public bool IsCompleted { get; internal set; }
+        public bool IsCompleted { get; set; }
 
         [Required(ErrorMessage = "CategoryId es requerido.")]
         public int CategoryId { get; set; }
+        public int Step { get; set; }
     }
 }

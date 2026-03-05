@@ -95,12 +95,13 @@ public class TaskService : ITaskService //Puente Interfaz y Servicio
     }
 
     // 2. GET BY ID
+    /* COmentado 040326 arreglando modal
     public async Task<TaskItemResponse?> GetByIdAsync(int id)
     {
         var task = await _context.Tasks.FindAsync(id);
 
         if (task == null) return null;
-
+        
         return new TaskItemResponse
         {
             Id = task.Id,
@@ -108,6 +109,56 @@ public class TaskService : ITaskService //Puente Interfaz y Servicio
             IsCompleted = task.IsCompleted,
             Step = task.Step,                       //270226 Se agrega porque faltan estos datos al enviarlos al Front
             CategoryId = (int)task.CategoryId       //270226
+        };
+        
+    }
+    */// Codigo de reemplazo 2 GET By ID Async
+    /*
+    public async Task<TaskItemResponse?> GetByIdAsync(int id)
+    {
+        // 1. CORRECCIÓN DE SINTAXIS Y CONSULTA:
+        // Quitamos el punto y coma (;) prematuro y usamos FirstOrDefaultAsync
+        // para poder usar .Include() correctamente.
+        var task = await _context.Tasks
+            .Include(t => t.Category) // Traemos la categoría relacionada
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        // 2. VALIDACIÓN: Si no existe, retornamos null
+        if (task == null) return null;
+
+        // 3. MAPEO DE DATOS (DTO):
+        // Solo usamos los campos que existen en TaskItemResponse y TaskItem.
+        return new TaskItemResponse
+        {
+            Id = task.Id,
+            Title = task.Title,
+            Step = task.Step, // Asegúrate de incluirlo si está en tu modelo
+            IsCompleted = task.IsCompleted,
+
+            // Manejo seguro de nulos para la Categoría
+            CategoryId = (int)task.CategoryId
+        };
+    }
+    *///Corregido?
+    public async Task<TaskItemResponse?> GetByIdAsync(int id)
+    {
+        var task = await _context.Tasks
+            .Include(t => t.Category)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
+        if (task == null) return null;
+
+        return new TaskItemResponse
+        {
+            Id = task.Id,
+            Title = task.Title,
+            Step = task.Step,
+            IsCompleted = task.IsCompleted,
+
+            // CORRECCION:
+            // Antes: CategoryId = (int)task.CategoryId 
+            // Ahora: Si es null, devuelve 0.
+            CategoryId = task.CategoryId ?? 0
         };
     }
 
@@ -124,7 +175,8 @@ public class TaskService : ITaskService //Puente Interfaz y Servicio
         var entity = new TaskItem
         {
             Title = request.Title.Trim(),
-            IsCompleted = false,
+            IsCompleted = request.IsCompleted,
+            Step = request.Step,
             CategoryId = request.CategoryId,
             CategoryName = ""
         };

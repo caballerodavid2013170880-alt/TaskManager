@@ -25,7 +25,7 @@ builder.Services.AddServices();
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 
-builder.Services.AddTransient<GlobalErrorHandlerMiddleware>();
+//builder.Services.AddTransient<GlobalErrorHandlerMiddleware>();
 
 // --- FIN DE SECCIÓN DE SERVICIOS ---
 
